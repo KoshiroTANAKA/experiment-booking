@@ -92,7 +92,10 @@ function updateConditionalQuestions(){
 
 async function reload(first){
   try {
-    const res = await fetch(`${GAS_API_URL}?action=publicData`);
+    const res = await fetch(`${GAS_API_URL}?action=publicData`, {
+      method: 'GET',
+      redirect: 'follow'
+    });
     const json = await res.json();
     if (!json.ok) throw new Error(json.error);
     const data = json.data;
@@ -128,6 +131,7 @@ form.addEventListener('submit', async e => {
   try {
     const res = await fetch(GAS_API_URL, {
       method: 'POST',
+      redirect: 'follow',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({ action: 'submitBooking', payload: { slotId: id, answers } })
     });
