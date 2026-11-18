@@ -37,7 +37,7 @@ h1{font-size:26px;margin:0 0 8px;letter-spacing:.02em}h2{font-size:20px;margin:0
 .slot-event .slot-time{font-weight:750;font-size:12px;white-space:nowrap;font-variant-numeric:tabular-nums}.slot-event .slot-caption{font-size:11px;white-space:nowrap}
 .slot-event:focus-visible,.nav-actions button:focus-visible{outline:3px solid #ffad33;outline-offset:1px}
 .week-empty{color:var(--muted);font-size:14px;padding:12px 0 0}
-#form[hidden],#loading[hidden],#processing[hidden],#message[hidden],#calendarSection[hidden],#noSlots[hidden]{display:none}
+[hidden]{display:none !important}
 .field{margin:16px 0 0}.field label{display:block;font-weight:650;margin-bottom:6px;font-size:14px}
 .field input,.field select,.field textarea{width:100%;padding:12px;border:1px solid #c5d3df;border-radius:9px;font:inherit;background:white;color:var(--ink)}
 .field input:focus,.field select:focus,.field textarea:focus{outline:2px solid #87b7e1;border-color:#1768ad}
@@ -159,14 +159,24 @@ function clearMessage() {
   $('message').textContent='';
 }
 function updateConditionalQuestions() {
-  const aff=$('q_affiliation'), grade=$('q_grade'), lab=$('q_lab'), group=$('group_lab');
+  const aff = $('q_affiliation');
+  const grade = $('q_grade');
+  const lab = $('q_lab');
+  const group = $('group_lab');
   if (!aff || !grade || !lab || !group) return;
-  const required=aff.value==='文化情報学部/文化情報学研究科' &&
-    ['B3','B4','M1','M2','D1','D2','D3'].includes(grade.value);
-  group.hidden=!required;
-  lab.required=required;
-  lab.disabled=!required;
-  if (!required) lab.value='';
+
+  // 学部/研究科の表記揺れ（全角スラッシュ・空白）にも対応
+  const affiliation = aff.value.replace(/\s/g, '').replace(/／/g, '/');
+  const isCulture = affiliation === '文化情報学部/文化情報学研究科';
+  const isB3OrHigher = ['B3','B4','M1','M2','D1','D2','D3'].includes(grade.value);
+  const needLab = isCulture && isB3OrHigher;
+
+  group.hidden = !needLab;
+  lab.required = needLab;
+  lab.disabled = !needLab;
+  if (!needLab) lab.value = '';
+  const label = group.querySelector('label');
+  if (label) label.textContent = '所属研究室' + (needLab ? ' *' : '');
 }
 function makeQuestions(questions) {
   const parent=$('questions');
@@ -191,13 +201,19 @@ function makeQuestions(questions) {
     }
     input.id='q_'+q.id;
     input.name=q.id;
-    input.required=!!q.required;
+    input.required=q.id === 'lab' ? false : !!q.required;
+    if (q.id === 'lab') {
+      input.disabled = true;
+      group.hidden = true;
+    }
     input.maxLength=500;
     group.append(label,input);
     parent.append(group);
   });
-  $('q_affiliation')?.addEventListener('change',updateConditionalQuestions);
-  $('q_grade')?.addEventListener('change',updateConditionalQuestions);
+  ['change','input'].forEach(eventName => {
+    $('q_affiliation')?.addEventListener(eventName,updateConditionalQuestions);
+    $('q_grade')?.addEventListener(eventName,updateConditionalQuestions);
+  });
   updateConditionalQuestions();
 }
 function selectSlot(slotId) {
@@ -304,6 +320,7 @@ async function load() {
 $('form').addEventListener('submit',async event=>{
   event.preventDefault();
   if (busy || !selectedSlotId)return;
+  updateConditionalQuestions();
   const answers={};
   new FormData($('form')).forEach((value,key)=>answers[key]=value);
   busy=true;
