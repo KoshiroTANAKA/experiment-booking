@@ -84,18 +84,46 @@ function labIsRequired(grade, affiliation) {
   const advanced = ['B3','B4','M1','M2','D1','D2','D3'].includes(grade);
   return culture && advanced;
 }
-function updateConditionalQuestions(){
-  const affiliation=document.getElementById('q_affiliation');
-  const grade=document.getElementById('q_grade');
-  const lab=document.getElementById('q_lab');
-  const group=document.getElementById('group_lab');
-  if(!affiliation||!grade||!lab||!group)return;
-  const show=labIsRequired(grade.value, affiliation.value);
-  group.hidden=!show;
-  lab.required=show;
-  lab.disabled=!show;
-  if(!show)lab.value='';
+
+function updateConditionalQuestions() {
+
+  const affiliation =
+    document.getElementById('q_affiliation');
+
+  const grade =
+    document.getElementById('q_grade');
+
+  const lab =
+    document.getElementById('q_lab');
+
+  const group =
+    document.getElementById('group_lab');
+
+  if (!affiliation || !grade || !lab || !group) {
+    return;
+  }
+
+  const isCulture =
+    affiliation.value ===
+    '文化情報学部/文化情報学研究科';
+
+  const isAdvanced = [
+    'B3', 'B4',
+    'M1', 'M2',
+    'D1', 'D2', 'D3'
+  ].includes(grade.value);
+
+  const showLab = isCulture && isAdvanced;
+
+  group.hidden = !showLab;
+  lab.required = showLab;
+  lab.disabled = !showLab;
+
+  if (!showLab) {
+    lab.value = '';
+  }
 }
+
 
 async function reload(first){
   try {
