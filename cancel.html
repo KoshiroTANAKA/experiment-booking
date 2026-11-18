@@ -3,175 +3,101 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>実験参加予約</title>
+  <title>実験予約のキャンセル</title>
   <style>
-    body{font-family:system-ui,-apple-system,"Noto Sans JP",sans-serif;background:#f5f7fa;color:#253046;margin:0}
-    main{max-width:650px;margin:28px auto;padding:24px;background:white;border-radius:14px;box-shadow:0 4px 20px #22334414}
-    h1{font-size:25px}label{display:block;margin:14px 0 5px;font-weight:600}input,select,textarea{box-sizing:border-box;width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:7px;font-size:16px}
-    button{margin-top:22px;width:100%;padding:13px;border:0;border-radius:8px;background:#2057a8;color:white;font-weight:700;font-size:16px;cursor:pointer}button:disabled{opacity:.45;cursor:default}
-    .error{color:#b42318}.success{color:#127746}.help{color:#607086;font-size:13px}.panel{background:#eff6ff;padding:12px;border-radius:8px;margin-top:15px}
+    body{font-family:system-ui,-apple-system,"Noto Sans JP",sans-serif;background:#f6f7fb;padding:20px;color:#253046}
+    main{max-width:550px;margin:35px auto;padding:28px;background:white;border-radius:12px}
+    button{background:#b42318;color:white;padding:13px 20px;border:0;border-radius:7px;font-size:16px;cursor:pointer}
+    button:disabled{opacity:.5}.error{color:#b42318}.success{color:#127746}
 
-    .busy{display:flex;align-items:center;gap:12px;margin:16px 0;padding:14px;background:#eff6ff;border-radius:9px;color:#23456d}
+    .busy{display:flex;align-items:center;gap:12px;margin:16px 0;padding:14px;background:#fff4ee;border-radius:9px;color:#753e24}
     .busy[hidden]{display:none}
-    .spinner{width:22px;height:22px;flex:0 0 22px;border:3px solid #cbdced;border-top-color:#2057a8;border-radius:50%;animation:spin .8s linear infinite}
+    .spinner{width:22px;height:22px;flex:0 0 22px;border:3px solid #efd8cf;border-top-color:#b42318;border-radius:50%;animation:spin .8s linear infinite}
     @keyframes spin{to{transform:rotate(360deg)}}
-    @media (prefers-reduced-motion: reduce){.spinner{animation:none;border-top-color:#2057a8}}
-    .busy-title{font-weight:700}.busy-note{font-size:13px;margin-top:4px;color:#536983;line-height:1.6}
+    @media (prefers-reduced-motion: reduce){.spinner{animation:none;border-top-color:#b42318}}
+    .busy-title{font-weight:700}.busy-note{font-size:13px;margin-top:4px;line-height:1.6}
   </style>
 </head>
 <body>
 <main>
-  <h1 id="title">実験参加予約</h1>
-  <p class="help">予約可能な日時を選択してください。各枠は先着順です。</p>
+  <h1>実験予約のキャンセル</h1>
   <div id="loading" class="busy" role="status" aria-live="polite">
     <span class="spinner" aria-hidden="true"></span>
-    <div><div class="busy-title">予約枠を読み込んでいます…</div><div class="busy-note">通信状況によっては時間がかかる場合があります。しばらくお待ちください。</div></div>
+    <div><div class="busy-title">予約情報を確認しています…</div><div class="busy-note">時間がかかる場合があります。しばらくお待ちください。</div></div>
   </div>
-  <form id="form" hidden>
-    <label for="date">日付 *</label><select id="date" required></select>
-    <label for="slot">時間 *</label><select id="slot" required></select>
-    <div id="questions"></div>
-    <button id="submit" type="submit">予約を確定する</button>
-  </form>
+  <div id="info"></div>
+  <button id="cancel" hidden>この予約をキャンセルする</button>
   <div id="processing" class="busy" role="status" aria-live="polite" hidden>
     <span class="spinner" aria-hidden="true"></span>
-    <div><div class="busy-title">予約を処理しています…</div><div class="busy-note">完了まで時間がかかる場合があります。この画面を閉じず、ボタンを再度押さずにお待ちください。</div></div>
+    <div><div class="busy-title">キャンセルを処理しています…</div><div class="busy-note">処理完了まで時間がかかる場合があります。画面を閉じず、そのままお待ちください。</div></div>
   </div>
-  <div id="message" role="status" aria-live="polite"></div>
+  <p id="message" role="status" aria-live="polite"></p>
 </main>
 <script>
 // ★ここにGASのウェブアプリURL（.../exec）を貼り付けてください
 const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbwfqTbSEmmsA98wdzdjiOxMCtyWPOT-Uv7u8Psrl7_h-sz3IlE6oLJE_98UAP90Q6lHIw/exec';
 
-let slots=[];
-const dateEl=document.getElementById('date'),slotEl=document.getElementById('slot');
-const msg=document.getElementById('message'),form=document.getElementById('form'),submit=document.getElementById('submit');
-const processing=document.getElementById('processing');
+const params = new URLSearchParams(window.location.search);
+const token = params.get('cancel') || '';
+const button = document.getElementById('cancel');
+const info = document.getElementById('info');
+const message = document.getElementById('message');
+const loading = document.getElementById('loading');
+const processing = document.getElementById('processing');
 
-function error(e){
-  msg.className='error';
-  msg.textContent=e&&e.message?e.message:String(e);
-  submit.disabled=false;
-}
-function dates(){
-  dateEl.replaceChildren();
-  const days=[...new Set(slots.map(s=>s.date))];
-  days.forEach(d=>dateEl.add(new Option(d,d)));
-  times();
-}
-function times(){
-  slotEl.replaceChildren();
-  slots.filter(s=>s.date===dateEl.value).forEach(s=>slotEl.add(new Option(`${s.start}～${s.end}（残り${s.available}枠）`,s.id)));
-}
-function makeQuestions(questions){
-  const parent=document.getElementById('questions');
-  parent.replaceChildren();
-  questions.forEach(q=>{
-    const label=document.createElement('label');
-    label.textContent=q.label+(q.required?' *':'');
-    label.htmlFor='q_'+q.id;
-    let el;
-    if(q.type==='select'){
-      el=document.createElement('select');
-      el.add(new Option('選択してください',''));
-      q.options.forEach(v=>el.add(new Option(v,v)));
-    } else if(q.type==='textarea'){
-      el=document.createElement('textarea');
-    } else {
-      el=document.createElement('input');
-      el.type=q.type==='email'?'email':'text';
-    }
-    el.id='q_'+q.id;el.name=q.id;el.required=q.required;el.maxLength=500;
-    const group=document.createElement('div');
-    group.id='group_'+q.id;
-    group.append(label,el);
-    parent.append(group);
-  });
-  const affiliation=document.getElementById('q_affiliation');
-  const grade=document.getElementById('q_grade');
-  if (affiliation) affiliation.addEventListener('change', updateConditionalQuestions);
-  if (grade) grade.addEventListener('change', updateConditionalQuestions);
-  updateConditionalQuestions();
-}
-function labIsRequired(grade, affiliation) {
-  const culture = affiliation === '文化情報学部/文化情報学研究科';
-  const advanced = ['B3','B4','M1','M2','D1','D2','D3'].includes(grade);
-  return culture && advanced;
-}
-function updateConditionalQuestions(){
-  const affiliation=document.getElementById('q_affiliation');
-  const grade=document.getElementById('q_grade');
-  const lab=document.getElementById('q_lab');
-  const group=document.getElementById('group_lab');
-  if(!affiliation||!grade||!lab||!group)return;
-  const show=labIsRequired(grade.value, affiliation.value);
-  group.hidden=!show;
-  lab.required=show;
-  lab.disabled=!show;
-  if(!show)lab.value='';
+function fail(e){
+  message.className='error';
+  message.textContent=e&&e.message?e.message:String(e);
+  button.disabled=false;
 }
 
-async function reload(first){
+async function init() {
+  if(!/^[a-f0-9]{64}$/.test(token)){
+    loading.hidden=true;
+    info.textContent='キャンセルURLが正しくありません。';
+    return;
+  }
   try {
-    const res = await fetch(`${GAS_API_URL}?action=publicData`, {
-      method: 'GET',
-      redirect: 'follow'
-    });
+    const res = await fetch(`${GAS_API_URL}?action=cancelLookup&token=${encodeURIComponent(token)}`);
     const json = await res.json();
     if (!json.ok) throw new Error(json.error);
-    const data = json.data;
-    document.getElementById('loading').hidden=true;
-    document.getElementById('title').textContent=data.title;
-    document.title=data.title;
-    slots=data.slots;
-    if(first) makeQuestions(data.questions);
-    if(!slots.length){
-      form.hidden=true;
-      msg.textContent='現在、予約できる枠はありません。';
-      return;
-    }
-    dates();
-    form.hidden=false;
-    submit.disabled=false;
+    const d = json.data;
+    info.textContent=`予約番号：${d.id} ／ ${d.date} ${d.start}～${d.end} ／ 状態：${d.status}。 ${d.message}`;
+    button.hidden=!d.canCancel;
   } catch (err) {
-    document.getElementById('loading').hidden=true;
-    error(err);
+    info.textContent='読み込みに失敗しました。';
+    fail(err);
+  } finally {
+    loading.hidden=true;
   }
 }
 
-dateEl.addEventListener('change',times);
-form.addEventListener('submit', async e => {
-  e.preventDefault();
-  if(!slotEl.value)return;
-  const id=slotEl.value;
-  const answers={};
-  new FormData(form).forEach((value,key)=>answers[key]=value);
-  submit.disabled=true;
+button.addEventListener('click', async () => {
+  if(!confirm('この予約をキャンセルしますか？')) return;
+  button.disabled=true;
   processing.hidden=false;
-  msg.className='';
-  msg.textContent='';
+  message.textContent='';
   try {
     const res = await fetch(GAS_API_URL, {
       method: 'POST',
-      redirect: 'follow',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: 'submitBooking', payload: { slotId: id, answers } })
+      body: JSON.stringify({ action: 'cancelBooking', token })
     });
     const result = await res.json();
     if (!result.ok) throw new Error(result.error);
-    form.hidden=true;
-    msg.className='success panel';
-    msg.textContent=result.message+' 予約番号：'+result.id;
+    button.hidden=true;
+    info.textContent='キャンセル済み';
+    message.className='success';
+    message.textContent=result.message+' メールも順次送信されます。';
   } catch (err) {
-    error(err);
-    msg.textContent += ' 通信が途中で切れた場合は予約が成立している可能性もあります。確認メールと予約状況を確認してから再試行してください。';
-    // 入力内容が消えないよう、失敗時に予約枠を自動で再取得しない。
+    fail(err);
+    message.textContent += ' 通信が途中で切れた場合はキャンセル済みの可能性もあります。メールや予約状態を確認してから再操作してください。';
   } finally {
     processing.hidden=true;
   }
 });
 
-reload(true);
+init();
 </script>
 </body>
 </html>
