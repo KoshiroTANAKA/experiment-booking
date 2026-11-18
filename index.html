@@ -73,17 +73,24 @@ function makeQuestions(questions){
     parent.append(group);
   });
   const affiliation=document.getElementById('q_affiliation');
-  if(affiliation) {
-    affiliation.addEventListener('input',updateConditionalQuestions);
-    updateConditionalQuestions();
-  }
+  const grade=document.getElementById('q_grade');
+  if (affiliation) affiliation.addEventListener('change', updateConditionalQuestions);
+  if (grade) grade.addEventListener('change', updateConditionalQuestions);
+  updateConditionalQuestions();
+}
+function labIsRequired(grade, affiliation) {
+  const culture = affiliation === '文化情報学部（文化情報学科）' ||
+    affiliation === '文化情報学部' || affiliation === '文化情報学研究科';
+  const advanced = ['B3','B4','M1','M2','D1','D2','D3'].includes(grade);
+  return culture && advanced;
 }
 function updateConditionalQuestions(){
   const affiliation=document.getElementById('q_affiliation');
+  const grade=document.getElementById('q_grade');
   const lab=document.getElementById('q_lab');
   const group=document.getElementById('group_lab');
-  if(!affiliation||!lab||!group)return;
-  const show=/文化情報/.test(affiliation.value);
+  if(!affiliation||!grade||!lab||!group)return;
+  const show=labIsRequired(grade.value, affiliation.value);
   group.hidden=!show;
   lab.required=show;
   lab.disabled=!show;
