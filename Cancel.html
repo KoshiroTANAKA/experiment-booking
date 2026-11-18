@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>実験予約のキャンセル</title>
+  <style>
+    body{font-family:system-ui,-apple-system,"Noto Sans JP",sans-serif;background:#f6f7fb;padding:20px;color:#253046}
+    main{max-width:550px;margin:35px auto;padding:28px;background:white;border-radius:12px}
+    button{background:#b42318;color:white;padding:13px 20px;border:0;border-radius:7px;font-size:16px;cursor:pointer}
+    button:disabled{opacity:.5}.error{color:#b42318}.success{color:#127746}
+  </style>
+</head>
+<body>
+<main>
+  <h1>実験予約のキャンセル</h1>
+  <div id="info">読み込み中…</div>
+  <button id="cancel" hidden>この予約をキャンセルする</button>
+  <p id="message" role="status"></p>
+</main>
+<script>
+// ★ここにGASのウェブアプリURL（.../exec）を貼り付けてください
+const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbwZjswS8xp27rWl1b_Ymfh96MPI9vaGjZpP9b49XCIm6FsJu-_VRGEh3aaCy0tXDjO_/exec';
+
+const params = new URLSearchParams(window.location.search);
+const token = params.get('cancel') || '';
+const button = document.getElementById('cancel');
+const info = document.getElementById('info');
+const message = document.getElementById('message');
+
+function fail(e){
+  message.className='error';
+  message.textContent=e&&e.message?e.message:String(e);
+  button.disabled=false;
+}
+
+async function init() {
+  if(!/^[a-f0-9]{64}$/.test(token)){
+    info.textContent='キャンセルURLが正しくありません。';
+    return;
+  }
+  try {
+    const res = await fetch(`${GAS_API_URL}?action=cancelLookup&token=${encodeURIComponent(token)}`);
+    const json = await res.json();
+    if (!json.ok) throw new Error(json.error);
+    const d = json.data;
+    info.textContent=`予約番号：${d.id} ／ ${d.date} ${d.start}～${d.end} ／ 状態：${d.status}。 ${d.message}`;
+    button.hidden=!d.canCancel;
+  } catch (err) {
+    info.textContent='読み込みに失敗しました。';
+    fail(err);
+  }
+}
+
+button.addEventListener('click', async () => {
+  if(!confirm('この予約をキャンセルしますか？')) return;
+  button.disabled=true;
+  try {
+    const res = await fetch(GAS_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'cancelBooking', token })
+    });
+    const result = await res.json();
+    if (!result.ok) throw new Error(result.error);
+    button.hidden=true;
+    info.textContent='キャンセル済み';
+    message.className='success';
+    message.textContent=result.message+' メールも順次送信されます。';
+  } catch (err) {
+    fail(err);
+  }
+});
+
+init();
+</script>
+</body>
+</html>

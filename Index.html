@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>実験参加予約</title>
+  <style>
+    body{font-family:system-ui,-apple-system,"Noto Sans JP",sans-serif;background:#f5f7fa;color:#253046;margin:0}
+    main{max-width:650px;margin:28px auto;padding:24px;background:white;border-radius:14px;box-shadow:0 4px 20px #22334414}
+    h1{font-size:25px}label{display:block;margin:14px 0 5px;font-weight:600}input,select,textarea{box-sizing:border-box;width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:7px;font-size:16px}
+    button{margin-top:22px;width:100%;padding:13px;border:0;border-radius:8px;background:#2057a8;color:white;font-weight:700;font-size:16px;cursor:pointer}button:disabled{opacity:.45;cursor:default}
+    .error{color:#b42318}.success{color:#127746}.help{color:#607086;font-size:13px}.panel{background:#eff6ff;padding:12px;border-radius:8px;margin-top:15px}
+  </style>
+</head>
+<body>
+<main>
+  <h1 id="title">実験参加予約</h1>
+  <p class="help">予約可能な日時を選択してください。各枠は先着順です。</p>
+  <div id="loading">予約枠を読み込んでいます…</div>
+  <form id="form" hidden>
+    <label for="date">日付 *</label><select id="date" required></select>
+    <label for="slot">時間 *</label><select id="slot" required></select>
+    <div id="questions"></div>
+    <button id="submit" type="submit">予約を確定する</button>
+  </form>
+  <div id="message" role="status"></div>
+</main>
+<script>
+// ★ここにGASのウェブアプリURL（.../exec）を貼り付けてください
+const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbwZjswS8xp27rWl1b_Ymfh96MPI9vaGjZpP9b49XCIm6FsJu-_VRGEh3aaCy0tXDjO_/exec';
+
+let slots=[];
+const dateEl=document.getElementById('date'),slotEl=document.getElementById('slot');
+const msg=document.getElementById('message'),form=document.getElementById('form'),submit=document.getElementById('submit');
+
+function error(e){
+  msg.className='error';
+  msg.textContent=e&&e.message?e.message:String(e);
+  submit.disabled=false;
+}
+function dates(){
+  dateEl.replaceChildren();
+  const days=[...new Set(slots.map(s=>s.date))];
+  days.forEach(d=>dateEl.add(new Option(d,d)));
+  times();
+}
+function times(){
+  slotEl.replaceChildren();
+  slots.filter(s=>s.date===dateEl.value).forEach(s=>slotEl.add(new Option(`${s.start}～${s.end}（残り${s.available}枠）`,s.id)));
+}
+function makeQuestions(questions){
+  const parent=document.getElementById('questions');
+  parent.replaceChildren();
+  questions.forEach(q=>{
+    const label=document.createElement('label');
+    label.textContent=q.label+(q.required?' *':'');
+    label.htmlFor='q_'+q.id;
+    let el;
+    if(q.type==='select'){
+      el=document.createElement('select');
+      el.add(new Option('選択してください',''));
+      q.options.forEach(v=>el.add(new Option(v,v)));
+    } else if(q.type==='textarea'){
+      el=document.createElement('textarea');
+    } else {
+      el=document.createElement('input');
+      el.type=q.type==='email'?'email':'text';
+    }
+    el.id='q_'+q.id;el.name=q.id;el.required=q.required;el.maxLength=500;
+    const group=document.createElement('div');
+    group.id='group_'+q.id;
+    group.append(label,el);
+    parent.append(group);
+  });
+  const affiliation=document.getElementById('q_affiliation');
+  if(affiliation) {
+    affiliation.addEventListener('input',updateConditionalQuestions);
+    updateConditionalQuestions();
+  }
+}
+function updateConditionalQuestions(){
+  const affiliation=document.getElementById('q_affiliation');
+  const lab=document.getElementById('q_lab');
+  const group=document.getElementById('group_lab');
+  if(!affiliation||!lab||!group)return;
+  const show=/文化情報/.test(affiliation.value);
+  group.hidden=!show;
+  lab.required=show;
+  lab.disabled=!show;
+  if(!show)lab.value='';
+}
+
+async function reload(first){
+  try {
+    const res = await fetch(`${GAS_API_URL}?action=publicData`);
+    const json = await res.json();
+    if (!json.ok) throw new Error(json.error);
+    const data = json.data;
+    document.getElementById('loading').hidden=true;
+    document.getElementById('title').textContent=data.title;
+    document.title=data.title;
+    slots=data.slots;
+    if(first) makeQuestions(data.questions);
+    if(!slots.length){
+      form.hidden=true;
+      msg.textContent='現在、予約できる枠はありません。';
+      return;
+    }
+    dates();
+    form.hidden=false;
+    submit.disabled=false;
+  } catch (err) {
+    document.getElementById('loading').hidden=true;
+    error(err);
+  }
+}
+
+dateEl.addEventListener('change',times);
+form.addEventListener('submit', async e => {
+  e.preventDefault();
+  if(!slotEl.value)return;
+  const id=slotEl.value;
+  const answers={};
+  new FormData(form).forEach((value,key)=>answers[key]=value);
+  submit.disabled=true;
+  msg.className='';
+  msg.textContent='予約を確認しています…';
+  try {
+    const res = await fetch(GAS_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'submitBooking', payload: { slotId: id, answers } })
+    });
+    const result = await res.json();
+    if (!result.ok) throw new Error(result.error);
+    form.hidden=true;
+    msg.className='success panel';
+    msg.textContent=result.message+' 予約番号：'+result.id;
+  } catch (err) {
+    error(err);
+    reload(false);
+  }
+});
+
+reload(true);
+</script>
+</body>
+</html>
