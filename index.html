@@ -1,183 +1,335 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>実験参加予約</title>
-  <style>
-    body{font-family:system-ui,-apple-system,"Noto Sans JP",sans-serif;background:#f5f7fa;color:#253046;margin:0}
-    main{max-width:650px;margin:28px auto;padding:24px;background:white;border-radius:14px;box-shadow:0 4px 20px #22334414}
-    h1{font-size:25px}label{display:block;margin:14px 0 5px;font-weight:600}input,select,textarea{box-sizing:border-box;width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:7px;font-size:16px}
-    button{margin-top:22px;width:100%;padding:13px;border:0;border-radius:8px;background:#2057a8;color:white;font-weight:700;font-size:16px;cursor:pointer}button:disabled{opacity:.45;cursor:default}
-    .error{color:#b42318}.success{color:#127746}.help{color:#607086;font-size:13px}.panel{background:#eff6ff;padding:12px;border-radius:8px;margin-top:15px}
-
-    .busy{display:flex;align-items:center;gap:12px;margin:16px 0;padding:14px;background:#eff6ff;border-radius:9px;color:#23456d}
-    .busy[hidden]{display:none}
-    .spinner{width:22px;height:22px;flex:0 0 22px;border:3px solid #cbdced;border-top-color:#2057a8;border-radius:50%;animation:spin .8s linear infinite}
-    @keyframes spin{to{transform:rotate(360deg)}}
-    @media (prefers-reduced-motion: reduce){.spinner{animation:none;border-top-color:#2057a8}}
-    .busy-title{font-weight:700}.busy-note{font-size:13px;margin-top:4px;color:#536983;line-height:1.6}
-    /* 予約枠取得中は中央に大きなローディング表示を出す */
-    #loading{min-height:160px;display:flex;flex-direction:column;justify-content:center;text-align:center;gap:14px;padding:22px}
-    #loading[hidden]{display:none}
-    #loading .spinner{width:38px;height:38px;flex:0 0 38px;border-width:4px;margin:auto}
-    #loading .busy-title{font-size:17px}
-    #loading .busy-note{max-width:370px;margin:6px auto 0}
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>実験参加予約</title>
+<style>
+:root{--primary:#1768ad;--primary-dark:#124b80;--ink:#1d3042;--muted:#607386;--border:#dce5ed;--background:#f3f7fb;--success:#14794b}
+*{box-sizing:border-box}
+body{margin:0;background:var(--background);color:var(--ink);font-family:system-ui,-apple-system,"Noto Sans JP",sans-serif;line-height:1.5}
+.page{max-width:1240px;margin:28px auto;padding:0 18px 45px}
+.panel{background:#fff;border:1px solid #e4ebf2;border-radius:15px;box-shadow:0 5px 24px #1a3c5a0a;padding:24px;margin-top:18px}
+h1{font-size:26px;margin:0 0 8px;letter-spacing:.02em}h2{font-size:20px;margin:0 0 12px}
+.help{margin:0;color:var(--muted);font-size:14px}
+.toolbar{display:flex;align-items:center;gap:10px;justify-content:space-between;flex-wrap:wrap;margin:18px 0 14px}
+.toolbar-title{font-weight:750;font-size:20px}
+.nav-actions{display:flex;align-items:center;gap:8px}
+.nav-actions button{border:1px solid var(--border);background:white;color:#244a6a;border-radius:9px;padding:9px 12px;font-size:14px;font-weight:650;cursor:pointer}
+.nav-actions button:hover:not(:disabled){background:#edf5fc}
+.nav-actions button:disabled{opacity:.4;cursor:default}
+.legend{display:flex;gap:18px;align-items:center;color:var(--muted);font-size:13px;flex-wrap:wrap;margin:0 0 13px}
+.dot{display:inline-block;width:11px;height:11px;border-radius:3px;vertical-align:middle;margin-right:5px;background:#dcf5e9;border:1px solid #87cba9}
+.calendar-scroll{overflow-x:auto;border:1px solid var(--border);border-radius:12px;background:#fff;scrollbar-gutter:stable}
+.calendar-inner{min-width:885px}
+.calendar-header{display:grid;grid-template-columns:64px repeat(7,minmax(0,1fr));background:#f5f9fd;border-bottom:1px solid var(--border)}
+.calendar-header .clock-head{border-right:1px solid var(--border)}
+.day-head{text-align:center;padding:12px 2px;border-right:1px solid var(--border);font-size:14px;font-weight:650}
+.day-head:last-child{border-right:none}.day-head small{display:block;font-size:12px;font-weight:450;color:var(--muted)}
+.day-head.sat{color:#2661a6}.day-head.sun{color:#b24c4c}.day-head.today{background:#e7f2ff}
+.calendar-body{display:grid;grid-template-columns:64px repeat(7,minmax(0,1fr));position:relative}
+.time-axis{position:relative;background:#fafcfe;border-right:1px solid var(--border)}
+.time-label{position:absolute;right:8px;transform:translateY(-50%);font-size:12px;color:#617488;font-variant-numeric:tabular-nums}
+.day-column{position:relative;min-width:0;border-right:1px solid var(--border);background-image:linear-gradient(to bottom,transparent calc(100% - 1px),#e7edf3 calc(100% - 1px));background-size:100% var(--hour-pixels)}
+.day-column:last-child{border-right:0}.day-column.weekend{background-color:#fcfdff}
+.slot-event{position:absolute;left:5px;right:5px;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;text-align:left;gap:3px;border:1px solid #78bf9e;background:#e2f6eb;color:#145d41;border-radius:7px;padding:5px 7px;cursor:pointer;overflow:hidden;transition:background .12s,border-color .12s}
+.slot-event:hover{background:#c7ecda;border-color:#2c9a68;z-index:2}.slot-event.selected{background:#1768ad;border-color:#124b80;color:#fff;z-index:3;box-shadow:0 2px 9px #155e9c44}
+.slot-event .slot-time{font-weight:750;font-size:12px;white-space:nowrap;font-variant-numeric:tabular-nums}.slot-event .slot-caption{font-size:11px;white-space:nowrap}
+.slot-event:focus-visible,.nav-actions button:focus-visible{outline:3px solid #ffad33;outline-offset:1px}
+.week-empty{color:var(--muted);font-size:14px;padding:12px 0 0}
+#form[hidden],#loading[hidden],#processing[hidden],#message[hidden],#calendarSection[hidden],#noSlots[hidden]{display:none}
+.field{margin:16px 0 0}.field label{display:block;font-weight:650;margin-bottom:6px;font-size:14px}
+.field input,.field select,.field textarea{width:100%;padding:12px;border:1px solid #c5d3df;border-radius:9px;font:inherit;background:white;color:var(--ink)}
+.field input:focus,.field select:focus,.field textarea:focus{outline:2px solid #87b7e1;border-color:#1768ad}
+.fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:20px}
+.selected-info{background:#edf6ff;border:1px solid #c6def6;border-radius:10px;padding:12px 15px;font-weight:750;margin:14px 0 8px}
+.submit-button{display:block;width:100%;margin-top:22px;background:var(--primary);color:white;border:0;border-radius:9px;padding:14px;font-weight:750;font-size:16px;cursor:pointer}.submit-button:hover:not(:disabled){background:var(--primary-dark)}.submit-button:disabled{opacity:.5;cursor:default}
+.busy{display:flex;align-items:center;gap:15px;background:#eef6ff;color:#254864;border-radius:12px;padding:20px;margin:16px 0}
+.spinner{width:29px;height:29px;flex:0 0 29px;border:4px solid #c5dcee;border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#loading{min-height:170px;flex-direction:column;justify-content:center;text-align:center}
+#loading .spinner{width:42px;height:42px;flex-basis:42px}
+.busy-title{font-weight:750}.busy-note{font-size:13px;color:#5c7187;margin-top:5px;line-height:1.6}
+.error{color:#ac2d27;background:#fff4f2;border:1px solid #f0c9c3;padding:13px;border-radius:9px;margin-top:14px}
+.success{color:#12633d;background:#eaf9ef;border:1px solid #a8dbb9;padding:16px;border-radius:9px;margin-top:14px}
+.secondary-help{color:var(--muted);font-size:13px;margin:8px 0 0}
+@media(max-width:650px){.page{margin:12px auto;padding:0 10px 25px}.panel{padding:16px;border-radius:12px}.fields{grid-template-columns:1fr}.toolbar-title{font-size:17px}h1{font-size:22px}.calendar-scroll:after{content:""}}
+@media(prefers-reduced-motion:reduce){.spinner{animation:none}}
+</style>
 </head>
 <body>
-<main>
-  <h1 id="title">実験参加予約</h1>
-  <p class="help">予約可能な日時を選択してください。各枠は先着順です。</p>
+<div class="page">
+  <header class="panel">
+    <h1 id="title">実験参加予約</h1>
+    <p class="help">カレンダーの緑色の枠から希望日時を選択してください。各枠は先着順です。</p>
+  </header>
   <div id="loading" class="busy" role="status" aria-live="polite">
     <span class="spinner" aria-hidden="true"></span>
     <div><div class="busy-title">予約枠を読み込んでいます…</div><div class="busy-note">読み込みに時間がかかる場合があります。そのままお待ちください。</div></div>
   </div>
-  <form id="form" hidden>
-    <label for="date">日付 *</label><select id="date" required></select>
-    <label for="slot">時間 *</label><select id="slot" required></select>
-    <div id="questions"></div>
-    <button id="submit" type="submit">予約を確定する</button>
-  </form>
+  <section id="calendarSection" class="panel" hidden aria-label="予約カレンダー">
+    <div class="toolbar">
+      <div class="toolbar-title" id="weekTitle">予約カレンダー</div>
+      <div class="nav-actions">
+        <button type="button" id="prevWeek" aria-label="前の週">‹ 前の週</button>
+        <button type="button" id="todayWeek">今週</button>
+        <button type="button" id="nextWeek" aria-label="次の週">次の週 ›</button>
+      </div>
+    </div>
+    <div class="legend"><span><i class="dot"></i>予約可能（クリックして選択）</span><span>表示がない時間帯は予約できません</span></div>
+    <div class="calendar-scroll" aria-label="横スクロール可能な週間カレンダー">
+      <div class="calendar-inner">
+        <div class="calendar-header" id="calendarHeader"></div>
+        <div class="calendar-body" id="calendarBody"></div>
+      </div>
+    </div>
+    <p class="secondary-help">スマートフォンでは、カレンダーを左右にスクロールして曜日を確認できます。</p>
+    <p class="week-empty" id="weekEmpty" hidden>この週に予約可能な枠はありません。別の週を選択してください。</p>
+  </section>
+  <section class="panel" id="bookingSection" hidden>
+    <h2>予約者情報を入力</h2>
+    <div class="selected-info" id="selectedInfo" aria-live="polite"></div>
+    <p class="secondary-help">日時を変更する場合は、上のカレンダーから別の枠を選んでください。</p>
+    <form id="form">
+      <div class="fields" id="questions"></div>
+      <button class="submit-button" id="submit" type="submit">予約を確定する</button>
+    </form>
+  </section>
   <div id="processing" class="busy" role="status" aria-live="polite" hidden>
     <span class="spinner" aria-hidden="true"></span>
-    <div><div class="busy-title">予約を処理しています…</div><div class="busy-note">完了まで時間がかかる場合があります。この画面を閉じず、ボタンを再度押さずにお待ちください。</div></div>
+    <div><div class="busy-title">予約を処理しています…</div><div class="busy-note">時間がかかる場合があります。画面を閉じず、再度送信せずにお待ちください。</div></div>
   </div>
-  <div id="message" role="status" aria-live="polite"></div>
-</main>
+  <div id="message" role="status" aria-live="polite" hidden></div>
+  <div id="noSlots" class="panel" hidden>現在、予約可能な枠はありません。</div>
+</div>
 <script>
-// ★ここにGASのウェブアプリURL（.../exec）を貼り付けてください
+// 現在利用しているGAS APIのURLを維持します。
 const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbwfqTbSEmmsA98wdzdjiOxMCtyWPOT-Uv7u8Psrl7_h-sz3IlE6oLJE_98UAP90Q6lHIw/exec';
 
-let slots=[];
-const dateEl=document.getElementById('date'),slotEl=document.getElementById('slot');
-const msg=document.getElementById('message'),form=document.getElementById('form'),submit=document.getElementById('submit');
-const processing=document.getElementById('processing');
+const $ = id => document.getElementById(id);
+const JP_DAYS = ['日','月','火','水','木','金','土'];
+const PX_PER_MINUTE = 1.30;
+const MIN_EVENT_HEIGHT = 31;
+let slots = [];
+let selectedSlotId = '';
+let currentWeek = '';
+let busy = false;
 
-function error(e){
-  msg.className='error';
-  msg.textContent=e&&e.message?e.message:String(e);
-  submit.disabled=false;
+// YYYY-MM-DDの日付はUTCの日付として扱い、閲覧端末のタイムゾーン差を防ぎます。
+function utcDate(ymd) {
+  return new Date(ymd + 'T00:00:00Z');
 }
-function dates(){
-  dateEl.replaceChildren();
-  const days=[...new Set(slots.map(s=>s.date))];
-  days.forEach(d=>dateEl.add(new Option(d,d)));
-  times();
+function ymd(date) {
+  return date.toISOString().slice(0,10);
 }
-function times(){
-  slotEl.replaceChildren();
-  slots.filter(s=>s.date===dateEl.value).forEach(s=>slotEl.add(new Option(`${s.start}～${s.end}（残り${s.available}枠）`,s.id)));
+function addDays(day, delta) {
+  const date = utcDate(day);
+  date.setUTCDate(date.getUTCDate() + delta);
+  return ymd(date);
 }
-function makeQuestions(questions){
-  const parent=document.getElementById('questions');
+function mondayOf(day) {
+  const date = utcDate(day);
+  const offset = (date.getUTCDay()+6)%7;
+  date.setUTCDate(date.getUTCDate()-offset);
+  return ymd(date);
+}
+function dateLabel(day) {
+  const d=utcDate(day);
+  return `${d.getUTCMonth()+1}/${d.getUTCDate()}（${JP_DAYS[d.getUTCDay()]}）`;
+}
+function todayInJapan() {
+  const parts = new Intl.DateTimeFormat('en-CA', {timeZone:'Asia/Tokyo',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
+  const get = kind => parts.find(p=>p.type===kind).value;
+  return `${get('year')}-${get('month')}-${get('day')}`;
+}
+function minutes(time) {
+  const [hours,mins] = time.split(':').map(Number);
+  return hours*60+mins;
+}
+function timeText(min) {
+  return `${String(Math.floor(min/60)).padStart(2,'0')}:${String(min%60).padStart(2,'0')}`;
+}
+function showMessage(text,kind) {
+  $('message').hidden=false;
+  $('message').className=kind;
+  $('message').textContent=text;
+}
+function clearMessage() {
+  $('message').hidden=true;
+  $('message').textContent='';
+}
+function updateConditionalQuestions() {
+  const aff=$('q_affiliation'), grade=$('q_grade'), lab=$('q_lab'), group=$('group_lab');
+  if (!aff || !grade || !lab || !group) return;
+  const required=aff.value==='文化情報学部/文化情報学研究科' &&
+    ['B3','B4','M1','M2','D1','D2','D3'].includes(grade.value);
+  group.hidden=!required;
+  lab.required=required;
+  lab.disabled=!required;
+  if (!required) lab.value='';
+}
+function makeQuestions(questions) {
+  const parent=$('questions');
   parent.replaceChildren();
   questions.forEach(q=>{
-    const label=document.createElement('label');
-    label.textContent=q.label+(q.required?' *':'');
-    label.htmlFor='q_'+q.id;
-    let el;
-    if(q.type==='select'){
-      el=document.createElement('select');
-      el.add(new Option('選択してください',''));
-      q.options.forEach(v=>el.add(new Option(v,v)));
-    } else if(q.type==='textarea'){
-      el=document.createElement('textarea');
-    } else {
-      el=document.createElement('input');
-      el.type=q.type==='email'?'email':'text';
-    }
-    el.id='q_'+q.id;el.name=q.id;el.required=q.required;el.maxLength=500;
     const group=document.createElement('div');
+    group.className='field';
     group.id='group_'+q.id;
-    group.append(label,el);
+    const label=document.createElement('label');
+    label.htmlFor='q_'+q.id;
+    label.textContent=q.label+(q.required?' *':'');
+    let input;
+    if (q.type==='select') {
+      input=document.createElement('select');
+      input.add(new Option('選択してください',''));
+      q.options.forEach(value=>input.add(new Option(value,value)));
+    } else if(q.type==='textarea') {
+      input=document.createElement('textarea');
+    } else {
+      input=document.createElement('input');
+      input.type=q.type==='email'?'email':'text';
+    }
+    input.id='q_'+q.id;
+    input.name=q.id;
+    input.required=!!q.required;
+    input.maxLength=500;
+    group.append(label,input);
     parent.append(group);
   });
-  const affiliation=document.getElementById('q_affiliation');
-  const grade=document.getElementById('q_grade');
-  if (affiliation) affiliation.addEventListener('change', updateConditionalQuestions);
-  if (grade) grade.addEventListener('change', updateConditionalQuestions);
+  $('q_affiliation')?.addEventListener('change',updateConditionalQuestions);
+  $('q_grade')?.addEventListener('change',updateConditionalQuestions);
   updateConditionalQuestions();
 }
-function labIsRequired(grade, affiliation) {
-  const culture = affiliation === '文化情報学部/文化情報学研究科';
-  const advanced = ['B3','B4','M1','M2','D1','D2','D3'].includes(grade);
-  return culture && advanced;
+function selectSlot(slotId) {
+  if (busy) return;
+  const slot=slots.find(s=>s.id===slotId);
+  if (!slot) return;
+  selectedSlotId=slot.id;
+  $('bookingSection').hidden=false;
+  $('selectedInfo').textContent=`選択中：${slot.date}（${JP_DAYS[utcDate(slot.date).getUTCDay()]}） ${slot.start}〜${slot.end}`;
+  document.querySelectorAll('.slot-event').forEach(button=>{
+    const selected=button.dataset.slotId===slotId;
+    button.classList.toggle('selected',selected);
+    button.setAttribute('aria-pressed',String(selected));
+  });
+  clearMessage();
+  $('bookingSection').scrollIntoView({behavior:'smooth',block:'start'});
 }
-function updateConditionalQuestions(){
-  const affiliation=document.getElementById('q_affiliation');
-  const grade=document.getElementById('q_grade');
-  const lab=document.getElementById('q_lab');
-  const group=document.getElementById('group_lab');
-  if(!affiliation||!grade||!lab||!group)return;
-  const show=labIsRequired(grade.value, affiliation.value);
-  group.hidden=!show;
-  lab.required=show;
-  lab.disabled=!show;
-  if(!show)lab.value='';
-}
-
-async function reload(first){
-  try {
-    const res = await fetch(`${GAS_API_URL}?action=publicData`, {
-      method: 'GET',
-      redirect: 'follow'
+function drawCalendar() {
+  if (!currentWeek) return;
+  $('weekTitle').textContent=`${dateLabel(currentWeek)} 〜 ${dateLabel(addDays(currentWeek,6))}`;
+  const days=Array.from({length:7},(_,i)=>addDays(currentWeek,i));
+  const currentDay=todayInJapan();
+  const header=$('calendarHeader'),body=$('calendarBody');
+  header.replaceChildren();body.replaceChildren();
+  const clock=document.createElement('div');clock.className='clock-head';header.append(clock);
+  days.forEach((day,i)=>{
+    const date=utcDate(day);
+    const cell=document.createElement('div');
+    cell.className='day-head'+(i===5?' sat':i===6?' sun':'')+(day===currentDay?' today':'');
+    const dayName=document.createElement('small');
+    dayName.textContent=JP_DAYS[date.getUTCDay()]+'曜日';
+    const number=document.createElement('div');
+    number.textContent=`${date.getUTCMonth()+1}/${date.getUTCDate()}`;
+    cell.append(dayName,number);header.append(cell);
+  });
+  // 表示する週に枠がないときも標準的な営業時間を表示します。
+  const weekSlots=slots.filter(s=>s.date>=days[0] && s.date<=days[6]);
+  const allMinutes=slots.flatMap(s=>[minutes(s.start),minutes(s.end)]);
+  const start=Math.max(0,Math.floor((Math.min(...(allMinutes.length?allMinutes:[540]))-30)/60)*60);
+  const end=Math.min(1440,Math.ceil((Math.max(...(allMinutes.length?allMinutes:[1140]))+30)/60)*60);
+  const height=(end-start)*PX_PER_MINUTE;
+  const axis=document.createElement('div');axis.className='time-axis';axis.style.height=height+'px';
+  for(let t=start;t<=end;t+=60){
+    const mark=document.createElement('div');mark.className='time-label';
+    mark.textContent=timeText(t);mark.style.top=((t-start)*PX_PER_MINUTE)+'px';
+    axis.append(mark);
+  }
+  body.append(axis);
+  days.forEach((day,index)=>{
+    const col=document.createElement('div');
+    col.className='day-column'+(index>4?' weekend':'');
+    col.style.height=height+'px';
+    col.style.setProperty('--hour-pixels',(60*PX_PER_MINUTE)+'px');
+    weekSlots.filter(s=>s.date===day).forEach(slot=>{
+      const b=document.createElement('button');
+      b.type='button';b.className='slot-event';
+      b.dataset.slotId=slot.id;
+      b.setAttribute('aria-pressed',String(selectedSlotId===slot.id));
+      if(selectedSlotId===slot.id)b.classList.add('selected');
+      b.setAttribute('aria-label',`${slot.date} ${slot.start}から${slot.end}、残り${slot.available}枠。選択`);
+      b.style.top=((minutes(slot.start)-start)*PX_PER_MINUTE+2)+'px';
+      b.style.height=(Math.max(MIN_EVENT_HEIGHT,(minutes(slot.end)-minutes(slot.start))*PX_PER_MINUTE-4))+'px';
+      const time=document.createElement('span');time.className='slot-time';time.textContent=`${slot.start}〜${slot.end}`;
+      const sub=document.createElement('span');sub.className='slot-caption';sub.textContent=`空き ${slot.available}`;
+      b.append(time,sub);
+      b.addEventListener('click',()=>selectSlot(slot.id));
+      col.append(b);
     });
-    const json = await res.json();
-    if (!json.ok) throw new Error(json.error);
-    const data = json.data;
-    document.getElementById('loading').hidden=true;
-    document.getElementById('title').textContent=data.title;
-    document.title=data.title;
-    slots=data.slots;
-    if(first) makeQuestions(data.questions);
-    if(!slots.length){
-      form.hidden=true;
-      msg.textContent='現在、予約できる枠はありません。';
-      return;
-    }
-    dates();
-    form.hidden=false;
-    submit.disabled=false;
-  } catch (err) {
-    document.getElementById('loading').hidden=true;
-    error(err);
+    body.append(col);
+  });
+  $('weekEmpty').hidden=weekSlots.length!==0;
+}
+function goWeek(delta) {
+  if (busy)return;
+  currentWeek=addDays(currentWeek,7*delta);
+  drawCalendar();
+}
+$('prevWeek').addEventListener('click',()=>goWeek(-1));
+$('nextWeek').addEventListener('click',()=>goWeek(1));
+$('todayWeek').addEventListener('click',()=>{
+  if(busy)return;
+  currentWeek=mondayOf(todayInJapan());
+  drawCalendar();
+});
+async function load() {
+  try {
+    const response=await fetch(`${GAS_API_URL}?action=publicData`,{method:'GET',redirect:'follow'});
+    const data=await response.json();
+    if(!data.ok)throw new Error(data.error||'予約枠を取得できませんでした。');
+    slots=data.data.slots||[];
+    $('title').textContent=data.data.title||'実験参加予約';
+    document.title=$('title').textContent;
+    makeQuestions(data.data.questions||[]);
+    if(!slots.length){$('noSlots').hidden=false;return;}
+    currentWeek=mondayOf(slots[0].date);
+    drawCalendar();
+    $('calendarSection').hidden=false;
+  } catch(error) {
+    showMessage('予約枠の読み込みに失敗しました。'+(error.message||String(error)),'error');
+  } finally {
+    $('loading').hidden=true;
   }
 }
-
-dateEl.addEventListener('change',times);
-form.addEventListener('submit', async e => {
-  e.preventDefault();
-  if(!slotEl.value)return;
-  const id=slotEl.value;
+$('form').addEventListener('submit',async event=>{
+  event.preventDefault();
+  if (busy || !selectedSlotId)return;
   const answers={};
-  new FormData(form).forEach((value,key)=>answers[key]=value);
-  submit.disabled=true;
-  processing.hidden=false;
-  msg.className='';
-  msg.textContent='';
+  new FormData($('form')).forEach((value,key)=>answers[key]=value);
+  busy=true;
+  $('submit').disabled=true;
+  $('processing').hidden=false;
+  clearMessage();
   try {
-    const res = await fetch(GAS_API_URL, {
-      method: 'POST',
-      redirect: 'follow',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: 'submitBooking', payload: { slotId: id, answers } })
+    const response=await fetch(GAS_API_URL,{
+      method:'POST',redirect:'follow',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({action:'submitBooking',payload:{slotId:selectedSlotId,answers}})
     });
-    const result = await res.json();
-    if (!result.ok) throw new Error(result.error);
-    form.hidden=true;
-    msg.className='success panel';
-    msg.textContent=result.message+' 予約番号：'+result.id;
-  } catch (err) {
-    error(err);
-    msg.textContent += ' 通信が途中で切れた場合は予約が成立している可能性もあります。確認メールと予約状況を確認してから再試行してください。';
-    // 入力内容が消えないよう、失敗時に予約枠を自動で再取得しない。
-  } finally {
-    processing.hidden=true;
+    const result=await response.json();
+    if(!result.ok)throw new Error(result.error||'予約ができませんでした。');
+    $('bookingSection').hidden=true;
+    $('calendarSection').hidden=true;
+    showMessage(result.message+' 予約番号：'+result.id,'success');
+  }catch(error){
+    showMessage((error.message||String(error))+' 通信が途中で切れた場合は予約が成立している可能性があります。確認メールや予約状況を確認してから再試行してください。','error');
+  }finally{
+    busy=false;
+    $('submit').disabled=false;
+    $('processing').hidden=true;
   }
 });
-
-reload(true);
+load();
 </script>
 </body>
 </html>
