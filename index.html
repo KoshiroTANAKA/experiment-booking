@@ -12,28 +12,64 @@ body{margin:0;background:var(--background);color:var(--ink);font-family:system-u
 .panel{background:#fff;border:1px solid #e4ebf2;border-radius:15px;box-shadow:0 5px 24px #1a3c5a0a;padding:24px;margin-top:18px}
 h1{font-size:26px;margin:0 0 8px;letter-spacing:.02em}h2{font-size:20px;margin:0 0 12px}
 .help{margin:0;color:var(--muted);font-size:14px}
+
 .experiment-info {
   margin: 16px 0;
-  padding: 14px 18px;
+  padding: 16px 20px;
   background: #f3f7fb;
   border-radius: 10px;
 }
-.experiment-info p {
-  margin: 6px 0;
+
+.info-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 10px 0;
   font-size: 14px;
   line-height: 1.8;
 }
-.experiment-info strong {
+
+.info-item strong {
+  flex-shrink: 0;
   color: #244a6a;
 }
-.experiment-info a {
+
+.researchers {
+  display: flex;
+  flex-direction: column;
+}
+
+.researchers span {
+  white-space: nowrap;
+}
+
+.info-item a {
   color: #1768ad;
   text-decoration: none;
   overflow-wrap: anywhere;
 }
-.experiment-info a:hover {
+
+.info-item a:hover {
   text-decoration: underline;
 }
+
+/* スマートフォン用 */
+@media (max-width: 650px) {
+  .experiment-info {
+    padding: 14px 16px;
+  }
+
+  .info-item {
+    flex-direction: column;
+    gap: 3px;
+    margin: 12px 0;
+  }
+
+  .researchers span {
+    white-space: normal;
+  }
+}
+
 .toolbar{display:flex;align-items:center;gap:10px;justify-content:space-between;flex-wrap:wrap;margin:18px 0 14px}
 .toolbar-title{font-weight:750;font-size:20px}
 .nav-actions{display:flex;align-items:center;gap:8px}
@@ -94,19 +130,26 @@ h1{font-size:26px;margin:0 0 8px;letter-spacing:.02em}h2{font-size:20px;margin:0
 
   <h1 id="title">映像視聴実験予約サイト</h1>
 
-  <div class="experiment-info">
-    <p>
-      <strong>研究実施者：</strong>
-      田中 康士朗・榊原 大・和田 明莉・蕪木 杏優
-    </p>
+  
+<div class="experiment-info">
 
-    <p>
-      <strong>連絡先：</strong>
-      <a href="mailto:ctmp0032@mail4.doshisha.ac.jp">
-        ctmp0032@mail4.doshisha.ac.jp
-      </a>
-    </p>
+  <div class="info-item">
+    <strong>研究実施者</strong>
+    <div class="researchers">
+      <span>田中 康士朗・蕪木 杏優</span>
+      <span>榊原 大・和田 明莉</span>
+    </div>
   </div>
+
+  <div class="info-item">
+    <strong>連絡先</strong>
+    <a href="mailto:ctmp0032@mail4.doshisha.ac.jp">
+      ctmp0032@mail4.doshisha.ac.jp
+    </a>
+  </div>
+
+</div>
+
 
   <p class="help">
     カレンダーの緑色の枠から希望日時を選択してください。
