@@ -356,8 +356,8 @@ async function load() {
     const data=await response.json();
     if(!data.ok)throw new Error(data.error||'予約枠を取得できませんでした。');
     slots=data.data.slots||[];
-    $('title').textContent=data.data.title||'実験参加予約';
-    document.title=$('title').textContent;
+    $('title').textContent = '映像視聴実験予約サイト';
+    document.title = '映像視聴実験予約サイト';
     makeQuestions(data.data.questions||[]);
     if(!slots.length){$('noSlots').hidden=false;return;}
     currentWeek=mondayOf(slots[0].date);
